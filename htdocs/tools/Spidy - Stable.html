@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <title>Spidy</title>
+    <!--<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>-->
+</head>
+
+<body>
+    <label>URL per il download</label>
+    <input id="url" type="url" name="url" placeholder="url" value="https://onepiecepower.com/manga7/jojo-bizarre-adventure-ottava-serie-jojolion/volumeXX/capitoloYY/ZZ.jpg">
+    <!--https://onepiecepower.com/manga7/jojo-bizarre-adventure-ottava-serie-jojolion/volume23/capitolo91/01.jpg-->
+    <hr>
+    <button class="b-extra" onclick='show_extra()'>Avanzate</button>
+    <div class="extra">
+        <label>Numero cifre necessarie(esempio 2 -> 00 | 3 -> 000)</label>
+        <input id='nrchar' type="text" name="var1" value="2">
+        <br>
+        <label>Timing (ms)</label>
+        <input id='timing' type="text" name="var1" value="200"><br>
+        <label>File.zip name</label>
+        <input id='name_file' type="text" name="var1" value="IMG"><br>
+        <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank">Accetto cors</a><br><br>
+        <a href="https://cors-anywhere.herokuapp.com/" target="_blank">Controlla permessi</a>
+    </div>
+    <hr>
+    <label>Volume</label><br>
+    <input id='rep1' type="text" name="var1" value="XX">
+    <input id="v1d" type="text" name="var1da" placeholder='Da 001' value="01">
+    <input id="v1a" type="text" name="var1a" placeholder='A 999' value="01">
+    <br><br>
+    <label>Capitolo</label><br>
+    <input id='rep2' type="text" name="var2" value="YY">
+    <input id="v2d" type="text" name="var2da" placeholder='Da 001' value="01">
+    <input id="v2a" type="text" name="var2a" placeholder='A 999' value="02">
+    <br><br>
+    <label>Immagine</label><br>
+    <input id='rep3' type="text" name="var3" value="ZZ">
+    <input id="v3d" type="text" name="var3da" placeholder='Da 001' value="01">
+    <input id="v3a" type="text" name="var3a" placeholder='A 999' value="30">
+    <br><br>
+    <label for="image-format">Seleziona il formato dell'immagine:</label>
+    <select name="image-format" id="image-format">
+        <option value="jpg">JPG</option>
+        <option value="png">PNG</option>
+        <option value="jpeg">JPEG</option>
+        <option value="gif">GIF</option>
+        <option value="bmp">BMP</option>
+        <option value="svg">SVG</option>
+    </select>
+    <br><br>
+    <button onclick="run('img')">Download Image</button>
+    <button onclick="run('zip')">Download Zip</button>
+    <div class="progress-bar">
+        <div class="progress-bar-fill"></div>
+    </div>
+    <img id="img" src="">
+    <script>
+    document.cookie = "username=sbr; SameSite=None; Secure";
+
+
+    function show_extra() {
+        document.querySelector('.extra').style.display = 'block';
+        document.querySelector('.b-extra').style.display = 'none';
+    }
+
+    async function run(el) {
+        url_origin = document.getElementById('url').value;
+        url = url_origin;
+        images = [];
+        timing = document.getElementById('timing').value;
+        rep1 = document.getElementById('rep1').value;
+        rep2 = document.getElementById('rep2').value;
+        rep3 = document.getElementById('rep3').value;
+        v1d = document.getElementById('v1d').value;
+        v1a = document.getElementById('v1a').value;
+        v2d = document.getElementById('v2d').value;
+        v2a = document.getElementById('v2a').value;
+        v3d = document.getElementById('v3d').value;
+        v3a = document.getElementById('v3a').value;
+        loading_tot = (parseFloat(v1a) - parseFloat(v1d) + 1) * (parseFloat(v2a) - parseFloat(v2d) + 1) * (parseFloat(v3a) - parseFloat(v3d) + 1)
+        loading_i = 0
+        progressBarFill = document.querySelector('.progress-bar-fill');
+        progressBarFill.style.width = '0%';
+        for (var x = v1d; x <= v1a; x++) {
+            x = padZero(x)
+            for (var y = v2d; y <= v2a; y++) {
+                y = padZero(y)
+                for (var z = v3d; z <= v3a; z++) {
+                    loading_i++
+                    i = (loading_i * 100) / loading_tot
+                    progressBarFill.style.width = i + '%'
+                    z = padZero(z)
+                    url = url_origin.replaceAll(rep3, padZero(z)).replaceAll(rep2, padZero(y)).replaceAll(rep1, padZero(x))
+                    if (await checkImageExists(url)) {
+                        const img = document.querySelector("img");
+                        img.src = url;
+                        console.log(url)
+                        if (el == 'img') {
+                            downloadImage(url, x, y, z)
+                        } else if (el == 'zip') {
+                            downloadZipImage(url, x, y, z)
+                        }
+                        await new Promise(resolve => setTimeout(resolve, `${timing}`));
+                    } else { break; }
+                }
+                y = parseFloat(y)
+            }
+            x = parseFloat(x)
+        }
+        progressBarFill.style.width = '100%'
+        Swal.fire({
+            title: 'Generation Complete',
+            text: 'We take a small break to complete the download',
+            icon: 'success',
+            showConfirmButton: false,
+            timer: 5000
+        });
+        setTimeout(function() {
+            if (el == 'zip') {
+
+                downloadZip(images);
+            }
+        }, 3000);
+    }
+
+    function padZero(str) {
+        // se la stringa ha meno di in base a nrchart caratteri
+        var nrc = parseFloat(document.getElementById('nrchar').value)
+        if (str.length < nrc) {
+            // aggiungi '0' all'inizio della stringa
+            str = '0' + str + '';
+        }
+        // restituisci la stringa modificata o originale
+        return str + '';
+    }
+
+
+    async function downloadImage(url, x, y, z) {
+        const corsUrl = 'https://cors-anywhere.herokuapp.com/' + url;
+        try {
+            const response = await fetch(corsUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+
+            a.download = `Vol${padZero(x)}-Cap${padZero(y)}-image${padZero(z)}.${document.getElementById('image-format').value}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Errore:', error);
+        }
+    }
+
+    /*Download ZIP*/
+    async function downloadZip(images) {
+        const zip = new JSZip();
+        for (let i = 0; i < images.length; i++) {
+            const response = await fetch(images[i].url);
+            const blob = await response.blob();
+            zip.file(images[i].filename, blob);
+        }
+        const content = await zip.generateAsync({ type: "blob" });
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = window.URL.createObjectURL(content);
+        name = document.getElementById('name_file').value;
+        a.download = `${name}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    let images = [];
+
+    async function downloadZipImage(url, x, y, z) {
+        const corsUrl = 'https://cors-anywhere.herokuapp.com/' + url;
+        try {
+            const response = await fetch(corsUrl);
+            const blob = await response.blob();
+            const filename = `Vol${padZero(x)}-Cap${padZero(y)}-image${padZero(z)}.${document.getElementById('image-format').value}`;
+            images.push({ url: URL.createObjectURL(blob), filename: filename });
+        } catch (error) {
+            console.error('Errore:', error);
+        }
+    }
+
+    async function checkImageExists(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
+    }
+
+    //console.log('https://onepiecepower.com/manga7/jojo-bizarre-adventure-ottava-serie-jojolion/volumeXX/capitoloYY/ZZ.jpg')
+    </script>
+</body>
+<style>
+/*V2*/
+.extra {
+    display: none;
+}
+
+.progress-bar {
+    height: 10px;
+    background-color: #eee;
+    border-radius: 5px;
+    margin-top: 20px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: #0077cc;
+    transition: width 0.2s ease;
+}
+
+.progress-bar-fill.loading {
+    animation: progress-bar-animation 1s infinite;
+}
+
+#img {
+    margin: 15px;
+    width: 150px;
+}
+
+@keyframes progress-bar-animation {
+    0% {
+        width: 0%;
+    }
+
+    50% {
+        width: 50%;
+    }
+
+    100% {
+        width: 100%;
+    }
+}
+
+/*V1*/
+button {
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+    font-size: 16px;
+    background-color: #0077cc;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: #005fa3;
+}
+
+/**/
+
+body {
+    max-width: 1000px !important;
+    font-family: Arial, sans-serif;
+    background-color: #f8f8f8;
+    margin: 15px;
+    padding: 0;
+}
+
+input {
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+    font-size: 16px;
+    margin-right: 10px;
+    margin-top: 10px;
+}
+
+input[type="url"] {
+    width: 80%;
+}
+
+label {
+    font-size: 16px;
+    margin-right: 10px;
+}
+
+hr {
+    border: none;
+    height: 1px;
+    background-color: #ccc;
+    margin: 30px 0;
+}
+</style>
+
+</html>
